@@ -1,0 +1,4 @@
+extractor/exporter/target/
+extractor/test-addon/target/
+/result/
+/plan.json

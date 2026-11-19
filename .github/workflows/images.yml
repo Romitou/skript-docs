@@ -1,0 +1,80 @@
+name: Extractor images
+
+# Builds one extractor image per entry of extractor/images.json (Paper + Skript + the exporter, see
+# extractor/image/Dockerfile), checks it on the test add-on, and publishes it on GHCR. Pull requests
+# only build and check.
+on:
+  push:
+    branches: [main]
+    paths: ["extractor/**", ".github/workflows/images.yml"]
+  pull_request:
+    paths: ["extractor/**", ".github/workflows/images.yml"]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      images: ${{ steps.list.outputs.images }}
+      repository: ${{ steps.list.outputs.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - id: list
+        run: |
+          echo "images=$(jq -c .images extractor/images.json)" >> "$GITHUB_OUTPUT"
+          echo "repository=$(jq -r .repository extractor/images.json)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: list
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.list.outputs.images) }}
+    name: build (Minecraft ${{ matrix.image.minecraft }}, Skript ${{ matrix.image.skript }})
+    env:
+      IMAGE: ${{ needs.list.outputs.repository }}:${{ matrix.image.minecraft }}-skript${{ matrix.image.skript }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Build
+        env:
+          JAVA_VERSION: ${{ matrix.image.java }}
+          PAPER_VERSION: ${{ matrix.image.minecraft }}
+          SKRIPT_VERSION: ${{ matrix.image.skript }}
+        run: |
+          docker build -t "$IMAGE" \
+            --build-arg JAVA_VERSION="$JAVA_VERSION" \
+            --build-arg PAPER_VERSION="$PAPER_VERSION" \
+            --build-arg SKRIPT_VERSION="$SKRIPT_VERSION" \
+            --label org.opencontainers.image.source="https://github.com/$GITHUB_REPOSITORY" \
+            -f extractor/image/Dockerfile extractor
+
+      - name: Check it on the test add-on
+        run: extractor/test/run.sh "$IMAGE"
+
+      - name: Publish
+        if: github.event_name != 'pull_request'
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "$IMAGE"
+          docker logout ghcr.io

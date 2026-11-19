@@ -1,0 +1,28 @@
+name: CI
+
+# The scanner's tests. The extractor image is checked by images.yml.
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths: ["scanner/**", ".github/workflows/ci.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  scanner:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scanner
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: scanner/go.mod
+          cache-dependency-path: scanner/go.sum
+      - run: go vet ./...
+      - run: go test ./...

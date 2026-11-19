@@ -1,0 +1,186 @@
+name: Extract syntaxes
+
+# Keeps addons/ up to date: lists the add-on versions Skript-MC publishes, extracts the syntaxes of
+# the new ones in throwaway, network-less Paper + Skript containers, and commits the results.
+#
+# The extraction runs third-party code (the add-ons' jars): the extract job has no write access and
+# no secret. Only the publish job may commit, and it never runs add-on code: it accepts nothing but
+# results of the jobs the plan listed, checked and cleaned (scanner publish).
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      addon:
+        description: "Only this add-on (slug, as on skript-mc.fr). Empty: all."
+        required: false
+        default: ""
+      force:
+        description: "Extract again even what already succeeded"
+        type: boolean
+        default: false
+
+concurrency:
+  group: extract
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  SKRIPT_MC_API: https://api.skript-mc.fr
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: scanner/go.mod
+          cache-dependency-path: scanner/go.sum
+
+      - name: Build the scanner
+        working-directory: scanner
+        run: go build -o "$RUNNER_TEMP/scanner" .
+
+      - name: Plan
+        id: plan
+        env:
+          ADDON: ${{ inputs.addon }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          args=(--api "$SKRIPT_MC_API" --github-output "$GITHUB_OUTPUT")
+          if [ -n "$ADDON" ]; then args+=(--addon "$ADDON"); fi
+          if [ "$FORCE" = "true" ]; then args+=(--force); fi
+          "$RUNNER_TEMP/scanner" plan "${args[@]}" > plan.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plan
+          path: plan.json
+          retention-days: 7
+
+  extract:
+    needs: plan
+    if: needs.plan.outputs.count != '0'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        job: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    name: extract (${{ matrix.job.addonSlug }} ${{ matrix.job.versionLabel }})
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: scanner/go.mod
+          cache-dependency-path: scanner/go.sum
+
+      - name: Build the scanner
+        working-directory: scanner
+        run: go build -o "$RUNNER_TEMP/scanner" .
+
+      # Before any add-on code runs. Anonymous pull when the package is public; otherwise a
+      # read-only login, logged out right after.
+      - name: Pull the extractor images
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          repository="$(jq -r .repository extractor/images.json)"
+          logged_in=false
+          for tag in $(jq -r '.images[] | "\(.minecraft)-skript\(.skript)"' extractor/images.json); do
+            if ! docker pull -q "$repository:$tag"; then
+              if [ "$logged_in" = false ]; then
+                echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+                logged_in=true
+              fi
+              docker pull -q "$repository:$tag"
+            fi
+          done
+          docker logout ghcr.io || true
+
+      - name: Extract
+        env:
+          JOB: ${{ toJSON(matrix.job) }}
+        run: '"$RUNNER_TEMP/scanner" extract --job "$JOB" --out result'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: result-${{ strategy.job-index }}
+          path: result/
+          retention-days: 7
+
+  publish:
+    needs: [plan, extract]
+    # Also when nothing was planned: status.json records the month, a commit that keeps GitHub from
+    # disabling this schedule after 60 days without activity.
+    if: always() && needs.plan.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: scanner/go.mod
+          cache-dependency-path: scanner/go.sum
+
+      - name: Build the scanner
+        working-directory: scanner
+        run: go build -o "$RUNNER_TEMP/scanner" .
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: plan
+          path: ${{ runner.temp }}/plan
+
+      - uses: actions/download-artifact@v4
+        if: needs.plan.outputs.count != '0'
+        with:
+          pattern: result-*
+          path: ${{ runner.temp }}/results
+
+      - name: Publish
+        run: |
+          "$RUNNER_TEMP/scanner" publish --plan "$RUNNER_TEMP/plan/plan.json" --results "$RUNNER_TEMP/results" | tee "$RUNNER_TEMP/summary.txt"
+          {
+            echo "### Extraction"
+            echo
+            sed 's/^/- /' "$RUNNER_TEMP/summary.txt"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit
+        run: |
+          git add index.json status.json addons
+          if git diff --cached --quiet; then
+            echo "Nothing changed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          {
+            echo "Update the extracted syntaxes"
+            echo
+            cat "$RUNNER_TEMP/summary.txt"
+          } | git commit -q -F -
+          for attempt in 1 2 3; do
+            git push && exit 0
+            git pull --rebase -q
+          done
+          exit 1

@@ -1,0 +1,7 @@
+{
+  "repository": "ghcr.io/romitou/skript-docs-extractor",
+  "images": [
+    { "minecraft": "26.3", "java": "25", "skript": "2.17.1" },
+    { "minecraft": "1.21.11", "java": "21", "skript": "2.17.1" }
+  ]
+}

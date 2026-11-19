@@ -1,0 +1,4 @@
+exporter/target
+test-addon/target
+test
+**/*.md

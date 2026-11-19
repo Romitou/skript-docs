@@ -1,0 +1,6 @@
+name: SkmcSyntaxExporter
+version: ${project.version}
+main: fr.skriptmc.exporter.ExporterPlugin
+api-version: '1.21'
+depend: [Skript]
+description: Exports the syntaxes of one Skript add-on for skript-docs, then stops the server. Never install it on a real server.
