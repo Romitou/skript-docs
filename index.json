@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "addons": [
+    {
+      "slug": "mongosk",
+      "name": "MongoSK",
+      "repo": "Romitou/MongoSK",
+      "tracked": true,
+      "latest": {
+        "generation": "20261119-172740-2.5.0",
+        "release": "2.5.0",
+        "file": "addons/mongosk/20261119-172740-2.5.0.json",
+        "syntaxCount": 52,
+        "jarSha256": "a61d812b13223d09ee84bdd484190305005fbed2a99c431bbc0291e0fb79643c",
+        "generatedAt": "2026-11-19T17:27:40Z"
+      },
+      "last": {
+        "generation": "20261119-172740-2.5.0",
+        "release": "2.5.0",
+        "status": "succeeded"
+      }
+    }
+  ]
+}

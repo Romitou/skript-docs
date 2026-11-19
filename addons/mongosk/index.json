@@ -1,0 +1,38 @@
+{
+  "formatVersion": 1,
+  "slug": "mongosk",
+  "name": "MongoSK",
+  "repo": "Romitou/MongoSK",
+  "latest": "20261119-172740-2.5.0",
+  "generations": [
+    {
+      "id": "20261119-172740-2.5.0",
+      "release": {
+        "tag": "2.5.0",
+        "url": "https://github.com/Romitou/MongoSK/releases/tag/2.5.0",
+        "publishedAt": "2026-11-01T18:12:16Z"
+      },
+      "assetId": 699236200,
+      "assetName": "MongoSK-2.5.0-all.jar",
+      "jarUrl": "https://github.com/Romitou/MongoSK/releases/download/2.5.0/MongoSK-2.5.0-all.jar",
+      "jarSha256": "a61d812b13223d09ee84bdd484190305005fbed2a99c431bbc0291e0fb79643c",
+      "reason": "first generation",
+      "status": "succeeded",
+      "file": "20261119-172740-2.5.0.json",
+      "syntaxCount": 52,
+      "plugin": {
+        "name": "MongoSK",
+        "version": "2.5.0",
+        "apiVersion": "1.13"
+      },
+      "image": "ghcr.io/romitou/skript-docs-extractor:1.21.11-skript2.17.1",
+      "minecraft": "1.21.11",
+      "skript": "2.17.1",
+      "dependencies": [],
+      "warnings": [],
+      "generatedAt": "2026-11-19T17:27:40Z",
+      "toolchain": "c72422bbecacb6c0",
+      "depsHash": "5775237a361a9183"
+    }
+  ]
+}

@@ -1,0 +1,1122 @@
+{
+  "format": "skmc-syntax-export",
+  "formatVersion": 1,
+  "language": "en",
+  "source": {
+    "plugin": "MongoSK",
+    "version": "2.5.0",
+    "skriptVersion": "2.17.1",
+    "minecraftVersion": "1.21.11"
+  },
+  "events": [
+    {
+      "id": "mongo_command_started",
+      "name": "On Mongo command started",
+      "documented": false,
+      "description": [],
+      "patterns": [
+        "mongo[(db|sk)] command start[ed]"
+      ],
+      "examples": [],
+      "since": [],
+      "requiredPlugins": []
+    },
+    {
+      "id": "mongo_command_succeeded",
+      "name": "On Mongo command succeeded",
+      "documented": false,
+      "description": [],
+      "patterns": [
+        "mongo[(db|sk)] command (success|succeeded)"
+      ],
+      "examples": [],
+      "since": [],
+      "requiredPlugins": []
+    },
+    {
+      "id": "mongo_command_failed",
+      "name": "On Mongo command failed",
+      "documented": false,
+      "description": [],
+      "patterns": [
+        "mongo[(db|sk)] command fail[ed]"
+      ],
+      "examples": [],
+      "since": [],
+      "requiredPlugins": []
+    }
+  ],
+  "conditions": [
+    {
+      "id": "CondMongoDocIsEmpty",
+      "name": "Mongo document is empty?",
+      "documented": true,
+      "description": [
+        "Checks if the document is completely empty, meaning it contains no keys or values.",
+        "Useful for verifying document initialization or checking if an update removed all fields."
+      ],
+      "patterns": [
+        "mongo[(sk|db)] document[s] %types.mongoskdocument% (is|are)[((n't| not))] empty"
+      ],
+      "examples": [
+        "set {_doc} to a new mongo document",
+        "if mongo document {_doc} is empty:",
+        "\tbroadcast \"The document is empty!\""
+      ],
+      "since": [
+        "2.1.0"
+      ],
+      "requiredPlugins": []
+    },
+    {
+      "id": "CondMongoDocHasKey",
+      "name": "Mongo document has key?",
+      "documented": true,
+      "description": [
+        "Checks if the document contains the specified key (field name).",
+        "Ideal for verifying if a specific attribute has been defined before attempting to read it."
+      ],
+      "patterns": [
+        "mongo[(sk|db)] document[s] %types.mongoskdocument% ((has|contains)|doesn't (have|contain)) key [named] %text%"
+      ],
+      "examples": [
+        "set {_doc} to a new mongo document",
+        "set mongo value \"foo\" of {_doc} to \"bar\"",
+        "if mongo document {_doc} has key \"foo\":",
+        "\tbroadcast \"The 'foo' key exists!\"",
+        "else:",
+        "\tbroadcast \"The 'foo' key doesn't exist :(\""
+      ],
+      "since": [
+        "2.1.0"
+      ],
+      "requiredPlugins": []
+    },
+    {
+      "id": "CondMongoDocHasValue",
+      "name": "Mongo document has value?",
+      "documented": true,
+      "description": [
+        "Checks if the document contains a specific value anywhere within it.",
+        "Useful for validating whether a given element is present in the document data."
+      ],
+      "patterns": [
+        "mongo[(sk|db)] document[s] %types.mongoskdocument% ((has|contains)|doesn't (have|contain)) value %integer/number/text/boolean (yes/no)/types.mongoskdocument%"
+      ],
+      "examples": [
+        "set {_doc} to a new mongo document",
+        "set mongo value \"foo\" of {_doc} to \"bar\"",
+        "if mongo document {_doc} has value \"bar\":",
+        "\tbroadcast \"The 'bar' value exists!\"",
+        "else:",
+        "\tbroadcast \"The 'bar' value doesn't exist :(\""
+      ],
+      "since": [
+        "2.1.0"
+      ],
+      "requiredPlugins": []
+    }
+  ],
+  "effects": [
+    {
+      "id": "EffCloseMongoServer",
+      "name": "Close Mongo client",
+      "documented": true,
+      "description": [
+        "Closes the connection to a Mongo server and releases its resources.",
+        "The client cannot be used anymore once closed: create a new one with the Mongo server expression if needed."
+      ],
+      "patterns": [
+        "close [the] mongo[(sk|db)] (client|server|connection)[s] %types.mongoskserver%"
+      ],
+      "examples": [
+        "on script unload:",
+        "\tclose mongo client {mongoclient}"
+      ],
+      "since": [
+        "2.5.0"
+      ],
+      "requiredPlugins": []
+    },
+    {
+      "id": "SectMongoValue",
+      "name": "Mongo section document value",
+      "documented": true,
+      "description": [
+        "This effect can only be used within a Mongo section document, and allows quick assignment of fields to the given document.",
+        "Be aware that this syntax is intended for basic data manipulation.",
+        "For complex scenarios, you can use the classic field definition expressions alongside this section."
+      ],
+      "patterns": [
+        "mongo[(sk|db)] [((field|value)|(array|list))] %text%\\: %objects%"
+      ],
+      "examples": [
+        "set {_nested} to a new mongo document with:",
+        "\tmongo \"number\": 100",
+        "\tmongo \"boolean\": false",
+        "set {_doc} to a new mongo document with:",
+        "\tmongo \"simpleField\": \"Hello!\"",
+        "\tmongo \"nestedObject\": {_nested}",
+        "broadcast {_doc}'s mongo json"
+      ],
+      "since": [
+        "2.1.0"
+      ],
+      "requiredPlugins": []
+    },
+    {
+      "id": "EffCreateMongoCollection",
+      "name": "Create Mongo collection",
+      "documented": true,
+      "description": [
+        "Quickly create a collection with a specific name within a database.",
+        "It is recommended to verify that the collection does not already exist before creating it."
+      ],
+      "patterns": [
+        "create [a] mongo[(sk|db)] collection [named] %text% in %types.mongoskdatabase%"
+      ],
+      "examples": [
+        "set {mydatabase} to mongo database named \"exampleDatabase\" from {myserver}",
+        "create a mongo collection named \"playerData\" in {mydatabase}"
+      ],
+      "since": [
+        "2.0.3"
+      ],
+      "requiredPlugins": []
+    },
+    {
+      "id": "EffManageMongoDocument",
+      "name": "Manage Mongo document",
+      "documented": true,
+      "description": [
+        "This effect provides shortcuts to manage documents within a collection.",
+        "You can insert a document (generating a new ID if needed), update/replace an existing document, upsert (insert if not exists, update if exists), or remove it entirely.",
+        "Documents without \"_id\" field are skipped when updating or removing, and get a new ID when upserting.",
+        "Note: This effect relies on the \"_id\" field as the unique identifier. If you have modified the \"_id\" field manually, behavior may be unexpected and using specialized queries is recommended."
+      ],
+      "patterns": [
+        "(insert|(replace|update)|remove|upsert) mongo[(sk|db)] doc[ument][s] %types.mongoskdocument% (in[to]|of|from) [collection] %types.mongoskcollection%"
+      ],
+      "examples": [
+        "set {_document} to a new mongo document",
+        "set mongo value \"playerName\" of {_document} to \"MongoUser\"",
+        "insert mongo document {_document} into collection {mycollection}",
+        "update mongo document {_document} of {mycollection}",
+        "upsert mongo document {_document} into {mycollection}",
+        "remove mongo documents {_doc1} and {_doc2} from {mycollection}"
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": []
+    }
+  ],
+  "expressions": [
+    {
+      "id": "ExprLastMongoError",
+      "name": "Last Mongo error",
+      "documented": true,
+      "description": [
+        "Returns the error message of the last Mongo request, or nothing if it succeeded.",
+        "It allows to distinguish a request that failed from a request that returned no result.",
+        "It is reset each time a new request is executed."
+      ],
+      "patterns": [
+        "[the] last mongo[(sk|db)] error"
+      ],
+      "examples": [
+        "set {_docs::*} to all mongo documents of collection {mycollection}",
+        "if last mongo error is set:",
+        "\tbroadcast \"The request failed: %last mongo error%\""
+      ],
+      "since": [
+        "2.5.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "Text"
+    },
+    {
+      "id": "SectMongoDocument",
+      "name": "Mongo section document",
+      "documented": true,
+      "description": [
+        "The Mongo section document allows the quick and intuitive initialization of a new document, letting you define its fields using the 'mongo value' expressions.",
+        "The variable specified in the first line holds the document built within the section.",
+        "You can then use this variable directly after the section concludes."
+      ],
+      "patterns": [
+        "[a] new mongo[(db|sk)] document with"
+      ],
+      "examples": [
+        "set {_doc} to a new mongo document with:",
+        "\tmongo \"a\": 1, 2 and 3",
+        "\tmongo list \"b\": 4, 5 and 6",
+        "\tmongo list \"c\": 1",
+        "\tmongo \"d\": 7",
+        "\tmongo value \"e\": 8",
+        "\tmongo value \"f\": 9 and 10",
+        "broadcast {_doc}'s mongo json"
+      ],
+      "since": [
+        "2.1.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "MongoSK Document"
+    },
+    {
+      "id": "ExprNewMongoDocument",
+      "name": "New Mongo document",
+      "documented": true,
+      "description": [
+        "Creates a new, empty Mongo document.",
+        "You can then use other expressions to populate it with fields, values, and lists."
+      ],
+      "patterns": [
+        "[[a] new] mongo[(sk|db)] [empty] document"
+      ],
+      "examples": [
+        "set {_doc} to a new mongo document",
+        "set mongo value \"name\" of {_doc} to \"MongoSK\""
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "MongoSK Document"
+    },
+    {
+      "id": "ExprNewMongoQuery",
+      "name": "New Mongo query",
+      "documented": true,
+      "description": [
+        "This expression allows you to create a new Mongo query, which you can refine using the many available expressions.",
+        "Queries encapsulate collection targets, filters, limits, sorting, and other configurations."
+      ],
+      "patterns": [
+        "[[a] new] mongo[(sk|db)] [empty] (query|request)"
+      ],
+      "examples": [
+        "set {_query} to new mongosk query",
+        "set mongo collection of {_query} to {mycollection}",
+        "set {_query}'s mongo comment to \"player query\"",
+        "set {_query}'s mongo disk usage to true",
+        "set {_query}'s mongo filter to new mongosk filter where field \"coins\" is 10",
+        "set mongo skip of {_query} to 12",
+        "set mongo sort of {_query} to mongo ascending sort by field \"test\""
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "MongoSK Query"
+    },
+    {
+      "id": "ExprMongoServer",
+      "name": "Mongo server",
+      "documented": true,
+      "description": [
+        "Create a connection to your remote MongoDB host using this expression.",
+        "This syntax requires you to specify a valid MongoDB connection string.",
+        "A client is reused as long as it is open: evaluating this expression again with the same connection string returns the same client.",
+        "Use the 'close mongo client' effect when you no longer need it, for example on script unload.",
+        "Don't forget to include the 'appName' option in order to improve MongoSK reports in case of problems and to identify requests in your server monitoring.",
+        "For more information, consult the official documentation: https://docs.mongodb.com/manual/reference/connection-string/."
+      ],
+      "patterns": [
+        "[[a] new] mongo[(sk|db)] (client|server) (with|from) [connection (string|uri|address)] %text%"
+      ],
+      "examples": [
+        "on script load:",
+        "\tset {mongoclient} to a new mongosk client with connection string \"mongodb://\u003cusername\u003e:\u003cpassword\u003e@127.0.0.1/?appName=myApp\u0026retryWrites=true\u0026w=majority\""
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "MongoSK Server"
+    },
+    {
+      "id": "ExprMongoProjection",
+      "name": "Mongo projection",
+      "documented": true,
+      "description": [
+        "Creates a projection for Mongo queries, allowing you to include or exclude specific fields from the returned documents.",
+        "This is useful for optimizing query payloads by only requesting necessary data."
+      ],
+      "patterns": [
+        "mongo[(db|sk)] projection (including|excluding) [the] field[s] %texts%"
+      ],
+      "examples": [
+        "set {_proj} to mongo projection including fields \"field1\" and \"field2\"",
+        "set {_proj} to mongo projection excluding fields \"field3\" and \"field4\""
+      ],
+      "since": [
+        "2.5.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "MongoSK Projection"
+    },
+    {
+      "id": "ExprMongoSort",
+      "name": "Mongo sort",
+      "documented": true,
+      "description": [
+        "Creates a sorting rule for query results based on one or more fields.",
+        "You can specify ascending or descending order."
+      ],
+      "patterns": [
+        "[[a] new] mongo[(db|sk)] (asc[ending]|desc[ending]) sort[ing] [by] field[s] %texts%"
+      ],
+      "examples": [
+        "set {_sort} to mongo ascending sort by field \"score\"",
+        "set {_sort} to mongo descending sort by fields \"level\" and \"experience\""
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "MongoSK Sort"
+    },
+    {
+      "id": "ExprMongoValues",
+      "name": "Mongo document values",
+      "documented": true,
+      "description": [
+        "With this expression, retrieve all the values of a document.",
+        "The expression returns a list of different data types corresponding to the stored values."
+      ],
+      "patterns": [
+        "mongo[(sk|db)] values of [document] %types.mongoskdocument%"
+      ],
+      "examples": [
+        "set {_values::*} to mongo values of {_document}"
+      ],
+      "since": [],
+      "requiredPlugins": [],
+      "returnType": "Object"
+    },
+    {
+      "id": "ExprMongoKeys",
+      "name": "Mongo document keys",
+      "documented": true,
+      "description": [
+        "With this expression, retrieve all the keys (field names) of a document.",
+        "The expression returns a list of text strings representing the keys."
+      ],
+      "patterns": [
+        "mongo[(sk|db)] keys of [document] %types.mongoskdocument%"
+      ],
+      "examples": [
+        "set {_keys::*} to mongo keys of {_document}"
+      ],
+      "since": [],
+      "requiredPlugins": [],
+      "returnType": "Text"
+    },
+    {
+      "id": "ExprMongoJoinedSorts",
+      "name": "Mongo joined sorts",
+      "documented": true,
+      "description": [
+        "Allows you to combine two sorting configurations to refine your queries further.",
+        "Useful when you need to sort by multiple criteria simultaneously."
+      ],
+      "patterns": [
+        "mongo[(sk|db)] joined sorts %types.mongosksort%"
+      ],
+      "examples": [
+        "set {_sort1} to mongo ascending sort by fields \"test\" and \"coins\"",
+        "set {_sort2} to mongo descending sort by field \"example\"",
+        "set {_sort} to mongo joined sorts {_sort1} and {_sort2}"
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "MongoSK Sort"
+    },
+    {
+      "id": "ExprMongoCollection",
+      "name": "Mongo collection",
+      "documented": true,
+      "description": [
+        "Retrieve a specific collection from a Mongo database.",
+        "You must specify the database where the collection is located."
+      ],
+      "patterns": [
+        "[the] mongo[(sk|db)] collection [named] %text% (of|from) %types.mongoskdatabase%"
+      ],
+      "examples": [
+        "set {mycollection} to mongo collection named \"players\" of {mydatabase}",
+        "broadcast \"Retrieved collection: %{mycollection}'s mongo name%\""
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "MongoSK Collection"
+    },
+    {
+      "id": "ExprMongoCommandResult",
+      "name": "Mongo command result",
+      "documented": true,
+      "description": [
+        "Sends a raw command to a MongoDB database and returns the resulting documents.",
+        "This frees you from the specific features implemented in MongoSK and allows you to execute arbitrary MongoDB commands.",
+        "For more information on possible commands, see: https://docs.mongodb.com/manual/reference/command/."
+      ],
+      "patterns": [
+        "(results|documents) of mongo[(sk|db)] command %text% (of|in) database %types.mongoskdatabase%"
+      ],
+      "examples": [
+        "set {_docs::*} to results of mongo command \"{ \"serverStatus\": 1 }\" of database {database}",
+        "set {_version} to mongo value \"version\" of {_docs::1}",
+        "broadcast \"Mongo host version: %{_version}%\""
+      ],
+      "since": [
+        "2.0.3"
+      ],
+      "requiredPlugins": [],
+      "returnType": "MongoSK Document"
+    },
+    {
+      "id": "ExprMongoEmbeddedValue",
+      "name": "Mongo Embedded Value",
+      "documented": true,
+      "description": [
+        "It is sometimes redundant to extract a document from a document repeatedly and undertake several data manipulations on multiple lines.",
+        "To remedy this, this expression will ask you for the path (using MongoSK specific syntax) as follows: \"foo.bar\", \"foo[0].bar\", or \"foo.bar[2]\".",
+        "Embedded documents must be separated by a dot, and you must specify in brackets the index of the array (starting from 0) if it is a list."
+      ],
+      "patterns": [
+        "mongo[(sk|db)] embedded ((field|value)|(array|list)) [with path] %text% of %types.mongoskdocument%"
+      ],
+      "examples": [
+        "# Given the following JSON document in {doc}:",
+        "# { \"doc\": { \"foo\": \"bar\" }, \"list\": [ { \"numbers\": [ \"1\", \"2\" ], \"hello\": \"world\" } ] }",
+        "set {_docfoo} to mongo embedded value with path \"doc.foo\" of {doc}",
+        "broadcast \"%{_docfoo}%\" # Output: bar",
+        "set {_listnumbers} to mongo embedded value with path \"list[0].numbers[1]\" of {doc}",
+        "broadcast \"%{_listnumbers}%\" # Output: 2",
+        "set {_listhello} to mongo embedded value with path \"list[0].hello\" of {doc}",
+        "broadcast \"%{_listhello}%\"  # Output: world"
+      ],
+      "since": [
+        "2.3.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "Object"
+    },
+    {
+      "id": "ExprMongoDatabase",
+      "name": "Mongo database",
+      "documented": true,
+      "description": [
+        "Retrieve a specific database from a Mongo server connection.",
+        "You must specify the Mongo server instance from which to retrieve the database."
+      ],
+      "patterns": [
+        "[the] mongo[(sk|db)] database [named] %text% (of|from) %types.mongoskserver%"
+      ],
+      "examples": [
+        "set {mydatabase} to mongo database named \"exampleDatabase\" from {myserver}",
+        "broadcast \"Yay! I retrieved my %{mydatabase}'s mongo name% database!\""
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "MongoSK Database"
+    },
+    {
+      "id": "ExprMongoDocumentField",
+      "name": "Mongo document field",
+      "documented": true,
+      "description": [
+        "This expression is extremely important because it allows you to manage the values and lists of your documents.",
+        "You can define lists, add items to lists, set values, or delete them.",
+        "If Skript adapters are enabled, you can specify any type of data, and they will be automatically transformed by MongoSK so that they can be registered.",
+        "This means you can store players, blocks, and items natively."
+      ],
+      "patterns": [
+        "mongo[(sk|db)] ((field|value)|(array|list)) [named] %text% of %types.mongoskdocument%"
+      ],
+      "examples": [
+        "command test:",
+        "\ttrigger:",
+        "\t\tset {_doc} to first mongo document from {mycollection}",
+        "\t\tif mongo value \"player\" of {_doc} is not set:",
+        "\t\t\tset mongo value \"player\" of {_doc} to player",
+        "\t\tset {_player} to mongo value \"player\" of {_doc}",
+        "\t\tsend \"Hello!\" to {_player}"
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "Object"
+    },
+    {
+      "id": "ExprMongoDistinctResult",
+      "name": "Mongo distinct query",
+      "documented": true,
+      "description": [
+        "Retrieves all distinct values for a specific field across a collection.",
+        "The expression will return a list of unique values found in the specified field."
+      ],
+      "patterns": [
+        "(first|all) mongo[(sk|db)] field[s] distincted by [field] %text% [(with|by) [filter] %types.mongoskfilter%] (of|from) collection %types.mongoskcollection%"
+      ],
+      "examples": [
+        "set {_distinctNames::*} to mongo distinct values of field \"name\" of {mycollection}",
+        "broadcast \"Unique names: %{_distinctNames::*}%\""
+      ],
+      "since": [
+        "2.2.1"
+      ],
+      "requiredPlugins": [],
+      "returnType": "Object"
+    },
+    {
+      "id": "ExprAllMongoCollections",
+      "name": "All Mongo collections",
+      "documented": true,
+      "description": [
+        "Quickly retrieve all the collections contained within a specific Mongo database.",
+        "Returns a list of MongoDB collections."
+      ],
+      "patterns": [
+        "[all] [the] mongo[(db|sk)] collections of %types.mongoskdatabase%",
+        "[all] %types.mongoskdatabase%'[s] mongo[(db|sk)] collections"
+      ],
+      "examples": [
+        "set {_collections::*} to all mongo collections of {mydatabase}",
+        "broadcast \"Collections of my database: %{_collections::*}'s mongo names%\""
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "MongoSK Collection"
+    },
+    {
+      "id": "ExprAllMongoDatabases",
+      "name": "All Mongo databases",
+      "documented": true,
+      "description": [
+        "Quickly retrieve all the databases contained within a Mongo server connection.",
+        "Returns a list of MongoDB databases."
+      ],
+      "patterns": [
+        "[all] [the] mongo[(db|sk)] databases of %types.mongoskserver%",
+        "[all] %types.mongoskserver%'[s] mongo[(db|sk)] databases"
+      ],
+      "examples": [
+        "set {_databases::*} to all mongo databases of {myserver}",
+        "broadcast \"Databases of my server: %{_databases::*}'s mongo names%\""
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "MongoSK Database"
+    },
+    {
+      "id": "ExprMongoFindResult",
+      "name": "Mongo find query",
+      "documented": true,
+      "description": [
+        "Executes a Mongo query or filter and returns the resulting documents from the collection.",
+        "You can choose to retrieve the first matching document, or all matching documents."
+      ],
+      "patterns": [
+        "[find] (first|all) mongo[(sk|db)] document[s] [(with|by) [filter] %types.mongoskfilter%] (of|from) collection %types.mongoskcollection%",
+        "[find] (first|all) mongo[(sk|db)] document[s] (of|from) query %types.mongoskquery%"
+      ],
+      "examples": [
+        "set {_doc} to first mongo document of {mycollection}",
+        "set {_docs::*} to all mongo documents with filter {_filter} of collection {mycollection}",
+        "set {_queryDocs::*} to all mongo documents for query {_query}"
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "MongoSK Document"
+    },
+    {
+      "id": "ExprMongoFilter",
+      "name": "Mongo filter",
+      "documented": true,
+      "description": [
+        "Create custom Mongo filters to target specific data in your queries to collections.",
+        "The comparators map to standard Skript comparators, providing intuitive filtering conditions."
+      ],
+      "patterns": [
+        "[[a] new] mongo[(db|sk)] filter [where] field %text% is ((greater|more|higher|bigger|larger|above) [than] or (equal to|the same as)|\\\u003e=) %integer/number%",
+        "[[a] new] mongo[(db|sk)] filter [where] field %text% is (((greater|more|higher|bigger|larger) than|above)|\\\u003e) %integer/number%",
+        "[[a] new] mongo[(db|sk)] filter [where] field %text% is ((less|smaller|below) [than] or (equal to|the same as)|\\\u003c=) %integer/number%",
+        "[[a] new] mongo[(db|sk)] filter [where] field %text% is (((less|smaller) than|below)|\\\u003c) %integer/number%",
+        "[[a] new] mongo[(db|sk)] filter [where] field %text% is ((not|neither)|isn't|!=) [equal to] %object%",
+        "[[a] new] mongo[(db|sk)] filter [where] field %text% (is|equals|=) %object%",
+        "[[a] new] mongo[(db|sk)] filter [where] field %text% (does(n't| not) exist|is not (set|defined))",
+        "[[a] new] mongo[(db|sk)] filter [where] field %text% (exists|is (set|defined))"
+      ],
+      "examples": [
+        "set {_filter} to a new mongosk filter where field \"example\" is true",
+        "set {_doc} to first mongo document with filter {_filter} of collection {mycollection}",
+        "set {_docs::*} to all mongo documents with mongosk filter where \"example\" equals true of collection {mycollection}"
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "MongoSK Filter"
+    },
+    {
+      "id": "ExprMongoJoinedFilters",
+      "name": "Mongo joined filters",
+      "documented": true,
+      "description": [
+        "Combines multiple filters into a single filter using 'and' / 'or' logic.",
+        "This allows you to create complex query conditions effortlessly."
+      ],
+      "patterns": [
+        "mongo[(sk|db)] joined filters %types.mongoskfilter% (and|or|nor) %types.mongoskfilter%",
+        "mongo[(sk|db)] joined filters %types.mongoskfilter% with (and|or|nor) [join] mode"
+      ],
+      "examples": [
+        "set {_filter1} to a new mongosk filter where field \"coins\" is greater than 100",
+        "set {_filter2} to a new mongosk filter where field \"rank\" is \"VIP\"",
+        "set {_combined} to mongo joined filters {_filter1} and {_filter2}"
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "MongoSK Filter"
+    },
+    {
+      "id": "ExprMongoQueryLimit",
+      "name": "Mongo query filter",
+      "documented": true,
+      "description": [
+        "Sets the maximum number of documents to be returned by the query.",
+        "This is optional and helps prevent loading too many documents into memory."
+      ],
+      "patterns": [
+        "[the] mongo[(db|sk)] limit of %types.mongoskquery%",
+        "%types.mongoskquery%'[s] mongo[(db|sk)] limit"
+      ],
+      "examples": [
+        "set {_query} to new mongosk query",
+        "set mongo limit of {_query} to 50"
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "Number"
+    },
+    {
+      "id": "ExprMongoQueryComment",
+      "name": "Mongo query comment",
+      "documented": true,
+      "description": [
+        "Defines the comment of the request, aiding in query monitoring on your MongoDB server.",
+        "This is optional and helps administrators trace query origins."
+      ],
+      "patterns": [
+        "[the] mongo[(db|sk)] comment of %types.mongoskquery%",
+        "%types.mongoskquery%'[s] mongo[(db|sk)] comment"
+      ],
+      "examples": [
+        "set {_query} to new mongosk query",
+        "set {_query}'s mongo comment to \"player data fetch query\""
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "Text"
+    },
+    {
+      "id": "ExprMongoQueryDiskUsage",
+      "name": "Mongo query disk usage",
+      "documented": true,
+      "description": [
+        "Enables writing to temporary files on the server.",
+        "When set to true, the server can write temporary data to disk while executing the operation.",
+        "This is optional and useful for memory-intensive operations."
+      ],
+      "patterns": [
+        "[the] mongo[(db|sk)] disk usage of %types.mongoskquery%",
+        "%types.mongoskquery%'[s] mongo[(db|sk)] disk usage"
+      ],
+      "examples": [
+        "set {_query} to new mongosk query",
+        "set {_query}'s mongo disk usage to true"
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "Boolean"
+    },
+    {
+      "id": "ExprMongoQuerySkip",
+      "name": "Mongo query skip",
+      "documented": true,
+      "description": [
+        "Sets the number of documents to be skipped during the query execution.",
+        "This is optional and commonly used for pagination."
+      ],
+      "patterns": [
+        "[the] mongo[(db|sk)] skip of %types.mongoskquery%",
+        "%types.mongoskquery%'[s] mongo[(db|sk)] skip"
+      ],
+      "examples": [
+        "set {_query} to new mongosk query",
+        "set mongo skip of {_query} to 12"
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "Number"
+    },
+    {
+      "id": "ExprMongoDocumentJson",
+      "name": "Mongo document JSON",
+      "documented": true,
+      "description": [
+        "Retrieves the JSON representation of a document.",
+        "This expression is extremely useful for integration with plugins like skript-json, allowing bidirectional conversion between documents and Skript variables.",
+        "You can also assign a JSON string to overwrite a document."
+      ],
+      "patterns": [
+        "[the] mongo[(db|sk)] json of %types.mongoskdocument%",
+        "%types.mongoskdocument%'[s] mongo[(db|sk)] json"
+      ],
+      "examples": [
+        "set {_json} to {_document}'s mongo json",
+        "set mongo json of {_document} to \"{ \"example\": true }\""
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "Text"
+    },
+    {
+      "id": "ExprMongoCollectionDatabase",
+      "name": "Mongo database name of a collection",
+      "documented": true,
+      "description": [
+        "Retrieves the database that a specific collection belongs to.",
+        "Useful when navigating back from a collection to its parent database."
+      ],
+      "patterns": [
+        "[the] mongo[(sk|db)] database name of %types.mongoskcollection%",
+        "%types.mongoskcollection%'[s] mongo[(sk|db)] database name"
+      ],
+      "examples": [
+        "set {_db} to mongo database of {mycollection}",
+        "broadcast \"Collection belongs to: %{_db}'s mongo name%\""
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "Text"
+    },
+    {
+      "id": "ExprMongoCollectionDocCount",
+      "name": "Mongo collection document count",
+      "documented": true,
+      "description": [
+        "Counts the total number of documents in a collection.",
+        "You can also provide a filter to count only documents matching specific criteria."
+      ],
+      "patterns": [
+        "[the] mongo[(db|sk)] estimated doc[ument][s] count of %types.mongoskcollection%",
+        "%types.mongoskcollection%'[s] mongo[(db|sk)] estimated doc[ument][s] count"
+      ],
+      "examples": [
+        "set {_total} to number of mongo documents of {mycollection}",
+        "set {_filteredCount} to number of mongo documents with filter {_filter} of {mycollection}"
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "integer"
+    },
+    {
+      "id": "ExprMongoName",
+      "name": "Mongo name",
+      "documented": true,
+      "description": [
+        "Retrieves the name of a Mongo server, database, or collection.",
+        "This is useful for logging or checking if you are interacting with the correct entity."
+      ],
+      "patterns": [
+        "[the] mongo[(db|sk)] name[s] of %types.mongoskdatabase/types.mongoskcollection%",
+        "%types.mongoskdatabase/types.mongoskcollection%'[s] mongo[(db|sk)] name[s]"
+      ],
+      "examples": [
+        "broadcast \"Connected to server: %{myserver}'s mongo name%\"",
+        "broadcast \"Using database: %{mydatabase}'s mongo name%\"",
+        "broadcast \"Querying collection: %{mycollection}'s mongo name%\""
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "Text"
+    },
+    {
+      "id": "ExprMongoQuerySort",
+      "name": "Mongo query sort",
+      "documented": true,
+      "description": [
+        "Defines the sorting criteria to be applied to the query.",
+        "This is optional and helps in ordering the returned documents."
+      ],
+      "patterns": [
+        "[the] mongo[(db|sk)] sort of %types.mongoskquery%",
+        "%types.mongoskquery%'[s] mongo[(db|sk)] sort"
+      ],
+      "examples": [
+        "set {_query} to new mongosk query",
+        "set mongo sort of {_query} to mongo ascending sort by field \"test\""
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "MongoSK Sort"
+    },
+    {
+      "id": "ExprMongoQueryProjection",
+      "name": "Mongo query projection",
+      "documented": true,
+      "description": [
+        "Defines the projection to be applied to the query, determining which fields are returned.",
+        "This is optional."
+      ],
+      "patterns": [
+        "[the] mongo[(db|sk)] projection of %types.mongoskquery%",
+        "%types.mongoskquery%'[s] mongo[(db|sk)] projection"
+      ],
+      "examples": [
+        "set {_query} to new mongosk query",
+        "set mongo projection of {_query} to mongo projection excluding fields \"_id\" and \"bulky_data\""
+      ],
+      "since": [
+        "2.5.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "MongoSK Projection"
+    },
+    {
+      "id": "ExprMongoQueryCollection",
+      "name": "Mongo query collection",
+      "documented": true,
+      "description": [
+        "Defines the collection in which the query will run.",
+        "This is required for the query to know where to execute."
+      ],
+      "patterns": [
+        "[the] mongo[(db|sk)] collection of %types.mongoskquery%",
+        "%types.mongoskquery%'[s] mongo[(db|sk)] collection"
+      ],
+      "examples": [
+        "set {_query} to new mongosk query",
+        "set mongo collection of {_query} to {mycollection}"
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "MongoSK Collection"
+    },
+    {
+      "id": "ExprMongoQueryFilter",
+      "name": "Mongo query filter",
+      "documented": true,
+      "description": [
+        "Allows you to attach a filter to a query.",
+        "This is optional for find queries, but mandatory for delete or replace queries to avoid accidentally modifying the entire collection."
+      ],
+      "patterns": [
+        "[the] mongo[(db|sk)] filter of %types.mongoskquery%",
+        "%types.mongoskquery%'[s] mongo[(db|sk)] filter"
+      ],
+      "examples": [
+        "set {_query} to new mongosk query",
+        "set {_query}'s mongo filter to new mongosk filter where field \"coins\" is 10"
+      ],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": [],
+      "returnType": "MongoSK Filter"
+    }
+  ],
+  "sections": [],
+  "structures": [],
+  "types": [
+    {
+      "id": "mongoskserver",
+      "name": "MongoSK Server",
+      "documented": true,
+      "description": [
+        "Represents a remote MongoDB server, with which you can interact. To create this type, use the Mongo Server expression."
+      ],
+      "patterns": [
+        "mongoskserver"
+      ],
+      "examples": [],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": []
+    },
+    {
+      "id": "mongoskdatabase",
+      "name": "MongoSK Database",
+      "documented": true,
+      "description": [
+        "Represents a Mongo database, which contains collections. If you want to create this type, look at the Mongo Database expression."
+      ],
+      "patterns": [
+        "mongoskdatabase"
+      ],
+      "examples": [],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": []
+    },
+    {
+      "id": "mongoskcollection",
+      "name": "MongoSK Collection",
+      "documented": true,
+      "description": [
+        "Represents a Mongo collection, which contains documents. Use the Mongo Collection expression to create this type."
+      ],
+      "patterns": [
+        "mongoskcollection"
+      ],
+      "examples": [],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": []
+    },
+    {
+      "id": "mongoskdocument",
+      "name": "MongoSK Document",
+      "documented": true,
+      "description": [
+        "Represents a Mongo (BSON) document, which contains some fields and values. If you want to read fields values, use the Mongo Value expression. Otherwise, you can use the Mongo Query expression to query your Mongo collection for documents."
+      ],
+      "patterns": [
+        "mongoskdocument"
+      ],
+      "examples": [],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": []
+    },
+    {
+      "id": "mongoskfilter",
+      "name": "MongoSK Filter",
+      "documented": true,
+      "description": [
+        "Represents a filter, which can be used in your queries to target a certain type of data. You can create a filter using the Mongo Filter expression."
+      ],
+      "patterns": [
+        "mongoskfilter"
+      ],
+      "examples": [],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": []
+    },
+    {
+      "id": "mongoskquery",
+      "name": "MongoSK Query",
+      "documented": true,
+      "description": [
+        "Allows you to build a complex query to target a very specific type of data with specific options."
+      ],
+      "patterns": [
+        "mongoskquery"
+      ],
+      "examples": [],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": []
+    },
+    {
+      "id": "mongosksort",
+      "name": "MongoSK Sort",
+      "documented": true,
+      "description": [
+        "Create a sort to first retrieve certain documents according to the specified fields."
+      ],
+      "patterns": [
+        "mongosksort"
+      ],
+      "examples": [],
+      "since": [
+        "2.0.0"
+      ],
+      "requiredPlugins": []
+    },
+    {
+      "id": "mongobinary",
+      "name": "MongoSK Binary",
+      "documented": true,
+      "description": [
+        "Represents a binary data, which can be used to store large data in a more efficient way."
+      ],
+      "patterns": [
+        "mongobinary"
+      ],
+      "examples": [],
+      "since": [
+        "2.3.3"
+      ],
+      "requiredPlugins": []
+    },
+    {
+      "id": "mongoskprojection",
+      "name": "MongoSK Projection",
+      "documented": true,
+      "description": [
+        "Create a projection to include or exclude certain fields when retrieving documents."
+      ],
+      "patterns": [
+        "mongoskprojection"
+      ],
+      "examples": [],
+      "since": [
+        "2.5.0"
+      ],
+      "requiredPlugins": []
+    }
+  ],
+  "functions": [],
+  "warnings": [],
+  "stats": {
+    "total": 52,
+    "ambiguous": 0,
+    "undocumented": 3
+  }
+}
