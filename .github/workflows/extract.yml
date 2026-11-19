@@ -1,7 +1,9 @@
 name: Extract syntaxes
 
-# Keeps addons/ up to date: lists the add-on versions Skript-MC publishes, extracts the syntaxes of
-# the new ones in throwaway, network-less Paper + Skript containers, and commits the results.
+# Keeps addons/ up to date: for each add-on of addons.json, looks at the latest release of its GitHub
+# repository, generates its syntaxes when something changed (a new release, new extractor images...)
+# in a throwaway, network-less Paper + Skript container, and commits the new generation next to the
+# previous ones.
 #
 # The extraction runs third-party code (the add-ons' jars): the extract job has no write access and
 # no secret. Only the publish job may commit, and it never runs add-on code: it accepts nothing but
@@ -12,11 +14,11 @@ on:
   workflow_dispatch:
     inputs:
       addon:
-        description: "Only this add-on (slug, as on skript-mc.fr). Empty: all."
+        description: "Only this add-on (slug of addons.json). Empty: all."
         required: false
         default: ""
       force:
-        description: "Extract again even what already succeeded"
+        description: "Generate again even when nothing changed"
         type: boolean
         default: false
 
@@ -25,9 +27,6 @@ concurrency:
   cancel-in-progress: false
 
 permissions: {}
-
-env:
-  SKRIPT_MC_API: https://api.skript-mc.fr
 
 jobs:
   plan:
@@ -51,13 +50,15 @@ jobs:
         working-directory: scanner
         run: go build -o "$RUNNER_TEMP/scanner" .
 
+      # The token only raises GitHub's rate limit for reading the releases (read-only job).
       - name: Plan
         id: plan
         env:
           ADDON: ${{ inputs.addon }}
           FORCE: ${{ inputs.force }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          args=(--api "$SKRIPT_MC_API" --github-output "$GITHUB_OUTPUT")
+          args=(--github-output "$GITHUB_OUTPUT")
           if [ -n "$ADDON" ]; then args+=(--addon "$ADDON"); fi
           if [ "$FORCE" = "true" ]; then args+=(--force); fi
           "$RUNNER_TEMP/scanner" plan "${args[@]}" > plan.json
@@ -80,7 +81,7 @@ jobs:
       max-parallel: 4
       matrix:
         job: ${{ fromJSON(needs.plan.outputs.matrix) }}
-    name: extract (${{ matrix.job.addonSlug }} ${{ matrix.job.versionLabel }})
+    name: extract (${{ matrix.job.addonSlug }} ${{ matrix.job.release.tag }})
     steps:
       - uses: actions/checkout@v4
         with:
@@ -175,7 +176,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           {
-            echo "Update the extracted syntaxes"
+            echo "New syntax generations"
             echo
             cat "$RUNNER_TEMP/summary.txt"
           } | git commit -q -F -

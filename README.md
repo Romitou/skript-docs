@@ -1,30 +1,49 @@
 # skript-docs
 
-Syntaxes des add-ons [Skript](https://github.com/SkriptLang/Skript), **extraites automatiquement de
-leurs jars** et publiées ici en JSON, à jour. Source de la documentation des add-ons de
-[Skript-MC](https://skript-mc.fr), et utilisables par n'importe quel outil.
+Syntaxes des add-ons [Skript](https://github.com/SkriptLang/Skript), **générées automatiquement à
+partir de leurs releases GitHub** et publiées ici en JSON, avec l'historique de chaque génération.
 
-Les syntaxes ne sont pas lues dans le code source mais **sur un vrai serveur** : chaque version
-d'add-on est lancée dans un serveur Paper + Skript jetable, sans réseau, avec un plugin d'export qui
-écrit ce que l'add-on a réellement enregistré. Les motifs construits à l'exécution (helpers,
-constantes, fichiers de langue, enregistrement conditionnel…) sont donc exacts.
+Les syntaxes ne sont pas lues dans le code source mais **sur un vrai serveur** : le jar de la
+dernière release d'un add-on est lancé dans un serveur Paper + Skript jetable, sans réseau, avec un
+plugin d'export qui écrit ce que l'add-on a réellement enregistré. Les motifs construits à
+l'exécution (helpers, constantes, fichiers de langue, enregistrement conditionnel…) sont donc exacts.
+
+## Ajouter un add-on
+
+Une ligne dans [`addons.json`](addons.json), par pull request :
+
+```json
+{ "slug": "mongosk", "name": "MongoSK", "repo": "Romitou/MongoSK" }
+```
+
+| Champ | |
+|---|---|
+| `slug` | Dossier sous `addons/` et clé des consommateurs : minuscules, chiffres et tirets, unique. |
+| `name` | Nom affiché. |
+| `repo` | Dépôt GitHub public, `owner/name`, qui publie le jar dans ses releases. |
+| `asset` | Facultatif : expression régulière choisissant le jar quand une release en contient plusieurs. Par défaut, tous les `.jar` sauf `-sources`/`-javadoc`, et le plus gros (souvent la version « shaded ») s'il en reste plusieurs. |
+| `prereleases` | Facultatif, `false` par défaut : documenter aussi les pré-versions. |
+
+La CI vérifie le fichier et l'existence des dépôts. Si l'add-on dépend d'autres plugins, les ajouter
+à [`deps.json`](#dépendances-depsjson). Retirer une ligne arrête les générations ; l'historique reste
+(marqué `tracked: false`), sauf à supprimer aussi `addons/<slug>/`.
 
 ## Les données
 
 ```
-index.json                    une ligne par add-on : dernière version extraite, dernier essai
-addons/<slug>/index.json      les versions traitées, réussies ou non
-addons/<slug>/<version>.json  les syntaxes d'une version
-addons/<slug>/<version>.log   fin du journal du serveur, pour une extraction en échec
-status.json                   mois du dernier passage
-deps.json                     catalogue des dépendances (voir plus bas)
-excluded.json                 add-ons jamais extraits (à la demande de leur auteur)
+index.json                                 une ligne par add-on : dernière génération réussie, dernière génération
+addons/<slug>/index.json                   l'historique des générations de l'add-on
+addons/<slug>/<génération>.json            les syntaxes produites par une génération réussie
+addons/<slug>/<génération>.log             fin du journal du serveur d'une génération en échec
+addons.json, deps.json                     configuration (voir plus haut et plus bas)
+status.json                                mois du dernier passage
 ```
 
-Le `slug` est celui de l'add-on sur skript-mc.fr (`/docs/<slug>`), et les `id` des add-ons et des
-versions sont ceux de son API. Pour suivre les changements, lire `index.json` puis le fichier
-`latest.file` des add-ons dont `latest.jarSha256` a changé. Pour du contenu stable, pointer une
-URL `raw.githubusercontent.com` sur un commit plutôt que sur `main`.
+Une **génération** est une exécution de l'extraction sur une release ; elle n'est jamais modifiée
+ni remplacée. Son identifiant est sa date et son heure (UTC) suivies du tag :
+`20261119-165207-v3.0.0`. Pour suivre les changements, lire `index.json` puis `latest.file` des
+add-ons dont `latest.generation` a changé ; pour du contenu stable, lire
+`raw.githubusercontent.com` à un commit plutôt que sur `main`.
 
 ### `index.json`
 
@@ -32,26 +51,28 @@ URL `raw.githubusercontent.com` sur un commit plutôt que sur `main`.
 {
   "formatVersion": 1,
   "addons": [{
-    "id": 12, "slug": "mongosk", "name": "MongoSK",
-    "latest": { "label": "3.0.0", "file": "addons/mongosk/3.0.0.json", "syntaxCount": 53,
-                "jarSha256": "001dfe68…", "extractedAt": "2026-11-19T16:52:07Z" },
-    "last": { "label": "3.0.0", "status": "succeeded" }
+    "slug": "mongosk", "name": "MongoSK", "repo": "Romitou/MongoSK", "tracked": true,
+    "latest": { "generation": "20261119-165207-v3.0.0", "release": "v3.0.0",
+                "file": "addons/mongosk/20261119-165207-v3.0.0.json", "syntaxCount": 53,
+                "jarSha256": "001dfe68…", "generatedAt": "2026-11-19T16:52:07Z" },
+    "last": { "generation": "20261119-165207-v3.0.0", "release": "v3.0.0", "status": "succeeded" }
   }]
 }
 ```
 
-`latest` est la dernière version extraite avec succès (`null` s'il n'y en a pas), `last` la
-dernière version essayée, avec `errorCode` si elle a échoué.
+`latest` est la génération réussie la plus récente (`null` s'il n'y en a pas), `last` la plus
+récente, avec `errorCode` si elle a échoué.
 
 ### `addons/<slug>/index.json`
 
-Les versions de la plus récente à la plus ancienne. Pour chacune : `label`, `versionId`,
-`versionDate`, `jarUrl`, `jarSha256`, `status` (`succeeded` | `failed`), `errorCode`,
-`errorMessage`, `file`, `log`, `syntaxCount`, `plugin` (`name`, `version`, `apiVersion` du
-`plugin.yml`), `image`, `minecraft`, `skript`, `dependencies` (plugins installés à côté),
-`warnings`, `extractedAt`. `latest` désigne la version la plus récente réussie.
+`slug`, `name`, `repo`, `latest` (identifiant de la dernière génération réussie) et `generations`,
+de la plus récente à la plus ancienne. Pour chacune : `id`, `release` (`tag`, `name`, `url`,
+`prerelease`, `publishedAt`), `assetId`, `assetName`, `jarUrl`, `jarSha256`, `reason` (pourquoi
+elle a eu lieu), `status` (`succeeded` | `failed`), `errorCode`, `errorMessage`, `file`, `log`,
+`syntaxCount`, `plugin` (`name`, `version`, `apiVersion` du `plugin.yml`), `image`, `minecraft`,
+`skript`, `dependencies` (plugins installés à côté), `warnings`, `generatedAt`.
 
-### `addons/<slug>/<version>.json`
+### `addons/<slug>/<génération>.json`
 
 ```json
 {
@@ -80,34 +101,40 @@ Les `id` sont ceux de la documentation de Skript (`DocumentationIdProvider` : no
 ## Fonctionnement
 
 ```
-toutes les 6 h ─► plan : add-ons et versions publiés par l'API Skript-MC
-                         └─ pour chaque add-on, la dernière release stable avec un .jar
-                            qui n'a pas encore été traitée
-               ─► extract (une tâche par version, aucune permission d'écriture, aucun secret) :
+toutes les 6 h ─► plan : pour chaque add-on d'addons.json, la dernière release du dépôt
+                         (hors brouillons, hors pré-versions sauf demande) et son jar ;
+                         une génération si quelque chose a changé depuis la précédente
+               ─► extract (une tâche par add-on, aucune permission d'écriture, aucun secret) :
                          télécharge le jar, lit plugin.yml, installe les dépendances de deps.json,
                          lance le conteneur d'extraction → résultat en artefact
                ─► publish (contents: write, n'exécute aucun code d'add-on) :
-                         ne retient que les résultats des versions planifiées, les vérifie et les
-                         nettoie, écrit addons/ et index.json, committe
+                         ne retient que les résultats planifiés, les vérifie et les nettoie,
+                         ajoute la génération à l'historique, réécrit index.json, committe
 ```
+
+Une nouvelle génération a lieu quand :
+
+- l'add-on n'en a encore aucune, ou une **nouvelle release** est sortie ;
+- le jar de la release a été remplacé ;
+- les images d'extraction ont changé (`extractor/images.json` : nouvelle version de Skript ou de
+  Minecraft), y compris pour une release déjà générée avec succès ;
+- la dernière génération a échoué et `deps.json` a changé (une dépendance manquante a été ajoutée) ;
+- elle est demandée : onglet *Actions* → *Extract syntaxes* → *Run workflow*, avec le `slug` d'un
+  add-on et `force`.
+
+Rien d'autre : une génération n'est jamais refaite pour rien. Chaque passage en lance au plus 20 ;
+la suite attend le suivant.
 
 | Dossier | Rôle |
 |---|---|
-| `scanner/` | Programme Go : `plan`, `extract`, `publish`. |
+| `scanner/` | Programme Go : `validate`, `plan`, `extract`, `publish`. |
 | `extractor/exporter/` | Plugin Bukkit chargé dans le serveur : exporte les syntaxes de l'add-on cible puis arrête le serveur. |
 | `extractor/image/` | Image Docker : Paper + Skript patchés à la construction, référence de Skript enregistrée, démarrage hors ligne. |
 | `extractor/images.json` | Les images (Minecraft, Java, Skript), lues par les workflows et le scanner. |
 | `extractor/test-addon/`, `extractor/test/run.sh` | Add-on minimal et test de bout en bout d'une image. |
 | `.github/workflows/extract.yml` | Le cycle ci-dessus. |
 | `.github/workflows/images.yml` | Construit, teste et publie les images sur GHCR. |
-
-Une version déjà réussie n'est plus extraite (sauf `force`, ou si son lien de jar change). Une
-version en échec est réessayée quand `extractor/images.json` ou `deps.json` changent : ajouter une
-dépendance manquante suffit à relancer les add-ons qui l'attendaient. Un échec ne remplace jamais
-un succès sur le même jar. Chaque passage traite au plus 20 versions ; la suite attend le suivant.
-
-Lancement manuel : onglet *Actions* → *Extract syntaxes* → *Run workflow*, avec un `slug` pour un
-seul add-on, et `force` pour refaire une extraction réussie.
+| `.github/workflows/ci.yml` | Tests du scanner, vérification de la configuration. |
 
 ### Attribution des syntaxes
 
@@ -140,13 +167,15 @@ Un jar d'add-on est du code arbitraire.
   les images, avec une connexion à GHCR fermée avant l'extraction) : même une sortie de conteneur ne
   donne qu'une VM jetable.
 - **La tâche `publish`**, seule à pouvoir committer, n'exécute aucun code d'add-on et traite les
-  résultats comme non fiables : l'identité de ce qui est publié (add-on, version, jar) vient du plan,
-  calculé avant toute extraction ; un résultat qui ne correspond à aucune version planifiée est
+  résultats comme non fiables : l'identité de ce qui est publié (add-on, release, jar) vient du plan,
+  calculé avant toute extraction ; un résultat qui ne correspond à aucune génération planifiée est
   ignoré ; les exports sont vérifiés (format, 3 000 syntaxes au plus, champs nettoyés et bornés,
   champs inconnus retirés).
-- **Téléchargements** : https uniquement, depuis les hôtes de GitHub (redirections comprises), 64 Mo
-  au plus. Les dépendances viennent de `deps.json`, avec leur sha256 vérifié.
-- **Côté Skript-MC**, les syntaxes passent encore par un import en dry-run relu par un admin.
+- **Téléchargements** : seulement les fichiers des releases du dépôt déclaré
+  (`https://github.com/<repo>/releases/download/…`), 64 Mo au plus. Les dépendances viennent de
+  `deps.json`, avec leur sha256 vérifié.
+- **Ce qui est suivi** passe par une pull request relue ; un consommateur (Skript-MC par exemple)
+  peut en plus faire relire chaque génération avant de la publier.
 
 ## Dépendances (`deps.json`)
 
@@ -169,9 +198,9 @@ seulement leur lien et leur sha256, téléchargés quand un add-on en a besoin.
 curl -fsSL "$URL" | sha256sum
 ```
 
-Une dépendance obligatoire absente fait échouer l'extraction (`MISSING_DEPENDENCY`) ; une
+Une dépendance obligatoire absente fait échouer la génération (`MISSING_DEPENDENCY`) ; une
 dépendance facultative absente donne un avertissement (les syntaxes qui en dépendent manquent).
-Modifier `deps.json` relance automatiquement les extractions en échec.
+Modifier `deps.json` relance les add-ons dont la dernière génération a échoué.
 
 ## Mise en place
 
@@ -179,16 +208,15 @@ Modifier `deps.json` relance automatiquement les extractions en échec.
    d'`extractor/` (ou à la main). Après la première publication, passer le paquet
    `skript-docs-extractor` en **public** (*Packages* → paramètres du paquet) : la tâche `extract`
    les tire alors sans se connecter.
-2. **Workflow d'extraction** : rien à configurer. Il interroge `https://api.skript-mc.fr`
-   (`SKRIPT_MC_API` dans `extract.yml`).
+2. **Workflow d'extraction** : rien à configurer, il ne lit que GitHub.
 3. Un dépôt public sans activité pendant 60 jours voit ses workflows planifiés désactivés par
    GitHub : `status.json`, réécrit chaque mois, produit au moins un commit par mois.
 
 ### Nouvelle version de Skript ou de Minecraft
 
 Modifier `extractor/images.json`. Le workflow d'images reconstruit, recalcule la référence de
-Skript, teste et publie ; les extractions en échec sont ensuite réessayées avec les nouvelles
-images. Les extractions réussies ne sont pas refaites (lancer avec `force` pour cela).
+Skript, teste et publie ; les passages suivants produisent une nouvelle génération de chaque add-on
+avec les nouvelles images (20 par passage).
 
 ### En local
 
@@ -205,7 +233,7 @@ cd scanner && go build -o ../scanner-bin . && cd ..
 ```
 
 ```bash
-./scanner-bin plan --api https://api.skript-mc.fr --addon mongosk > plan.json
+./scanner-bin plan --addon mongosk > plan.json
 ```
 
 ```bash
@@ -216,8 +244,9 @@ SCANNER_IMAGE_REPOSITORY=skript-docs-extractor ./scanner-bin extract --job "$(jq
 ./scanner-bin publish --plan plan.json --results results
 ```
 
-Variables de `extract` : `SCANNER_IMAGE_REPOSITORY` (images locales), `SCANNER_ALLOWED_HOSTS`
-(hôtes de téléchargement, GitHub par défaut), `SCANNER_MAX_JAR_MB` (64), `SCANNER_TIMEOUT` (4m),
+`plan` et `validate --check-repos` lisent `GITHUB_TOKEN` s'il est défini (limite de l'API GitHub).
+Variables d'`extract` : `SCANNER_IMAGE_REPOSITORY` (images locales), `SCANNER_ALLOWED_HOSTS` (hôtes
+de téléchargement, ceux de GitHub par défaut), `SCANNER_MAX_JAR_MB` (64), `SCANNER_TIMEOUT` (4m),
 `SCANNER_MEMORY` (1536m), `SCANNER_CPUS` (2), `SCANNER_DOCKER_RUNTIME` (par exemple `runsc`).
 
 ## Codes d'erreur
@@ -235,9 +264,12 @@ Variables de `extract` : `SCANNER_IMAGE_REPOSITORY` (images locales), `SCANNER_A
 | `INVALID_EXPORT`, `NO_SYNTAX` | L'export a été refusé à la publication, ou il est vide. |
 | `SCANNER_ERROR`, `UNKNOWN` | Erreur interne. |
 
+Une release dont aucune pièce jointe n'est un jar utilisable n'est pas planifiée ; le journal du
+workflow (*Plan*) le signale.
+
 ## Contenu publié
 
 Les descriptions et exemples publiés ici sont ceux que les auteurs des add-ons ont écrits dans leur
 code (annotations `@Name`, `@Description`, `@Examples`…). Un auteur qui ne souhaite pas que la
-documentation de son add-on figure ici peut ouvrir une issue : elle sera retirée (`addons/<slug>/`)
-et l'add-on ajouté à `excluded.json`, qu'aucune extraction ne touche plus.
+documentation de son add-on figure ici peut ouvrir une issue : l'add-on sera retiré d'`addons.json`
+et son dossier supprimé.

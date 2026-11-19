@@ -1,11 +1,12 @@
 name: CI
 
-# The scanner's tests. The extractor image is checked by images.yml.
+# The scanner's tests, and the configuration a pull request may change (addons.json, deps.json,
+# images.json). The extractor image is checked by images.yml.
 on:
   pull_request:
   push:
     branches: [main]
-    paths: ["scanner/**", ".github/workflows/ci.yml"]
+    paths: ["scanner/**", "addons.json", "deps.json", "extractor/images.json", ".github/workflows/ci.yml"]
 
 permissions:
   contents: read
@@ -26,3 +27,7 @@ jobs:
           cache-dependency-path: scanner/go.sum
       - run: go vet ./...
       - run: go test ./...
+      - name: Check addons.json, deps.json and images.json
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: go run . validate --check-repos --addons ../addons.json --deps ../deps.json --images ../extractor/images.json

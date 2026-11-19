@@ -1,0 +1,9 @@
+{
+  "addons": [
+    {
+      "slug": "mongosk",
+      "name": "MongoSK",
+      "repo": "Romitou/MongoSK"
+    }
+  ]
+}

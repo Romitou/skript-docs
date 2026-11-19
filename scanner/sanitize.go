@@ -11,7 +11,7 @@ import (
 )
 
 // Limits on a published export: it comes from running a third-party jar, so it is untrusted, like
-// a file anyone could have written. Skript-MC's importer checks the same again.
+// a file anyone could have written. Consumers should check what they import again.
 const (
 	MaxSyntaxes        = 3000
 	maxIDLength        = 64
@@ -159,7 +159,8 @@ func (s *sanitizer) items(items []Item, category string) []Item {
 	return out
 }
 
-// fitID keeps an id within 64 bytes (Skript-MC's column), unique thanks to a hash of the full id.
+// fitID keeps an id within 64 bytes (a common database column size), unique thanks to a hash of
+// the full id.
 func fitID(id string) string {
 	if len(id) <= maxIDLength {
 		return id

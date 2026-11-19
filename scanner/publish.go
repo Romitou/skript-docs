@@ -23,14 +23,19 @@ var (
 )
 
 func jobKey(j Job) string {
-	return j.AddonSlug + "\x00" + j.VersionLabel + "\x00" + j.JarURL
+	return fmt.Sprintf("%s\x00%s\x00%d\x00%s", j.AddonSlug, j.Release.Tag, j.AssetID, j.JarURL)
 }
 
-// Publish writes the results of a run into the repository's data: each result must match a job of
-// the plan (computed before any add-on code ran), and is checked and cleaned before being written.
-// The identity of what is published (add-on, version, jar) always comes from the plan, never from
-// the result. Returns one line per result.
-func Publish(data string, plan Plan, resultsDir string, now time.Time) ([]string, error) {
+// GenerationID names a generation and its files: date and time (UTC), then the release tag.
+func GenerationID(at time.Time, tag string) string {
+	return at.UTC().Format("20060102-150405") + "-" + safeFileName(tag)
+}
+
+// Publish adds the results of a run to the repository's data, as new generations: nothing is ever
+// replaced. Each result must match a job of the plan (computed before any add-on code ran), and is
+// checked and cleaned before being written; the identity of what is published (add-on, release,
+// jar) always comes from the plan, never from the result. Returns one line per job.
+func Publish(data string, tracked []TrackedAddon, plan Plan, resultsDir string, now time.Time) ([]string, error) {
 	planned := map[string]Job{}
 	for _, job := range plan.Jobs {
 		planned[jobKey(job)] = job
@@ -56,10 +61,10 @@ func Publish(data string, plan Plan, resultsDir string, now time.Time) ([]string
 	}
 	for key, job := range planned {
 		if !done[key] {
-			summary = append(summary, fmt.Sprintf("%s %s: no result (the extraction job did not finish), retried next run", job.AddonSlug, job.VersionLabel))
+			summary = append(summary, fmt.Sprintf("%s %s: no result (the extraction job did not finish), tried again next run", job.AddonSlug, job.Release.Tag))
 		}
 	}
-	if err := writeRootIndex(data); err != nil {
+	if err := writeRootIndex(data, tracked); err != nil {
 		return summary, err
 	}
 	// A commit at least once a month: GitHub disables the schedule of a public repository after 60
@@ -89,11 +94,13 @@ func publishOne(data string, plan Plan, planned map[string]Job, done map[string]
 		return fmt.Sprintf("%s: invalid slug, ignored", job.AddonSlug), nil
 	}
 
-	entry := VersionEntry{
-		Label:        job.VersionLabel,
-		VersionID:    job.VersionID,
-		VersionDate:  job.VersionDate,
+	gen := Generation{
+		ID:           GenerationID(now, job.Release.Tag),
+		Release:      job.Release,
+		AssetID:      job.AssetID,
+		AssetName:    clean(job.AssetName, 255),
 		JarURL:       job.JarURL,
+		Reason:       job.Reason,
 		Status:       "failed",
 		Plugin:       PluginMeta{Name: clean(result.Plugin.Name, 128), Version: clean(result.Plugin.Version, 128), APIVersion: clean(result.Plugin.APIVersion, 32)},
 		Image:        clean(result.Image, 255),
@@ -101,14 +108,13 @@ func publishOne(data string, plan Plan, planned map[string]Job, done map[string]
 		Skript:       clean(result.Skript, 32),
 		Dependencies: lines(result.Dependencies, 50),
 		Warnings:     lines(result.Warnings, maxWarnings),
-		ExtractedAt:  now.UTC().Truncate(time.Second),
+		GeneratedAt:  now.UTC().Truncate(time.Second),
 		Toolchain:    plan.Toolchain,
 		DepsHash:     plan.DepsHash,
 	}
 	if jarSHAPattern.MatchString(result.JarSHA256) {
-		entry.JarSHA256 = result.JarSHA256
+		gen.JarSHA256 = result.JarSHA256
 	}
-	base := safeFileName(job.VersionLabel)
 	folder := addonDir(data, job.AddonSlug)
 
 	var export Export
@@ -119,83 +125,67 @@ func publishOne(data string, plan Plan, planned map[string]Job, done map[string]
 		}
 		switch {
 		case err != nil:
-			entry.ErrorCode, entry.ErrorMessage = "INVALID_EXPORT", truncate(err.Error(), 2000)
+			gen.ErrorCode, gen.ErrorMessage = "INVALID_EXPORT", truncate(err.Error(), 2000)
 		case export.Stats.Total == 0:
-			entry.ErrorCode, entry.ErrorMessage = "NO_SYNTAX", "The add-on registered no syntax on this server."
+			gen.ErrorCode, gen.ErrorMessage = "NO_SYNTAX", "The add-on registered no syntax on this server."
 		default:
-			entry.Status = "succeeded"
-			entry.SyntaxCount = export.Stats.Total
-			entry.File = base + ".json"
-			entry.Warnings = append(entry.Warnings, export.Warnings...)
-			if len(entry.Warnings) > maxWarnings {
-				entry.Warnings = entry.Warnings[:maxWarnings]
+			gen.Status = "succeeded"
+			gen.SyntaxCount = export.Stats.Total
+			gen.File = gen.ID + ".json"
+			gen.Warnings = append(gen.Warnings, export.Warnings...)
+			if len(gen.Warnings) > maxWarnings {
+				gen.Warnings = gen.Warnings[:maxWarnings]
 			}
 		}
 	} else {
-		entry.ErrorCode = result.ErrorCode
-		if !errorCodePattern.MatchString(entry.ErrorCode) {
-			entry.ErrorCode = "UNKNOWN"
+		gen.ErrorCode = result.ErrorCode
+		if !errorCodePattern.MatchString(gen.ErrorCode) {
+			gen.ErrorCode = "UNKNOWN"
 		}
-		entry.ErrorMessage = truncate(clean(result.ErrorMessage, 2000), 2000)
+		gen.ErrorMessage = truncate(clean(result.ErrorMessage, 2000), 2000)
+	}
+
+	if err := os.MkdirAll(folder, 0o755); err != nil {
+		return "", err
+	}
+	if gen.Status == "succeeded" {
+		if err := writeJSON(filepath.Join(folder, gen.File), export); err != nil {
+			return "", err
+		}
+	} else if log, err := readLimited(filepath.Join(dir, "server.log"), 1<<20); err == nil && len(log) > 0 {
+		gen.Log = gen.ID + ".log"
+		if err := os.WriteFile(filepath.Join(folder, gen.Log), []byte(tail(string(log), maxLogBytes)), 0o644); err != nil {
+			return "", err
+		}
 	}
 
 	index, err := loadAddonIndex(data, job.AddonSlug)
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", job.AddonSlug, err)
 	}
-	position := -1
-	for i, existing := range index.Versions {
-		if existing.Label == job.VersionLabel {
-			position = i
-		}
-	}
-	// A failed retry never replaces a success on the same jar (a forced run that hit a flaky
-	// download, for instance).
-	if position >= 0 && entry.Status == "failed" {
-		if old := index.Versions[position]; old.Status == "succeeded" && old.JarURL == entry.JarURL {
-			return fmt.Sprintf("%s %s: failed (%s), the previous success is kept", job.AddonSlug, job.VersionLabel, entry.ErrorCode), nil
-		}
-	}
-
-	logPath := filepath.Join(folder, base+".log")
-	exportPath := filepath.Join(folder, base+".json")
-	if entry.Status == "succeeded" {
-		if err := writeJSON(exportPath, export); err != nil {
-			return "", err
-		}
-		_ = os.Remove(logPath)
-	} else {
-		_ = os.Remove(exportPath)
-		if log, err := readLimited(filepath.Join(dir, "server.log"), 1<<20); err == nil && len(log) > 0 {
-			if err := os.MkdirAll(folder, 0o755); err != nil {
-				return "", err
-			}
-			if err := os.WriteFile(logPath, []byte(tail(string(log), maxLogBytes)), 0o644); err != nil {
-				return "", err
-			}
-			entry.Log = base + ".log"
-		}
-	}
-
-	if position >= 0 {
-		index.Versions[position] = entry
-	} else {
-		index.Versions = append(index.Versions, entry)
-	}
 	index.FormatVersion = FormatVersion
-	index.ID, index.Slug, index.Name = job.AddonID, job.AddonSlug, clean(job.AddonName, 128)
-	index.sortVersions()
+	index.Slug, index.Name, index.Repo = job.AddonSlug, clean(job.AddonName, 128), job.Repo
+	index.Generations = append([]Generation{gen}, index.Generations...)
+	index.Latest = ""
+	if latest := index.latestOf(); latest != nil {
+		index.Latest = latest.ID
+	}
 	if err := writeJSON(filepath.Join(folder, "index.json"), index); err != nil {
 		return "", err
 	}
-	if entry.Status == "succeeded" {
-		return fmt.Sprintf("%s %s: %d syntaxes", job.AddonSlug, job.VersionLabel, entry.SyntaxCount), nil
+	if gen.Status == "succeeded" {
+		return fmt.Sprintf("%s %s: %d syntaxes (%s)", job.AddonSlug, job.Release.Tag, gen.SyntaxCount, job.Reason), nil
 	}
-	return fmt.Sprintf("%s %s: failed (%s)", job.AddonSlug, job.VersionLabel, entry.ErrorCode), nil
+	return fmt.Sprintf("%s %s: failed, %s (%s)", job.AddonSlug, job.Release.Tag, gen.ErrorCode, job.Reason), nil
 }
 
-// writeRootIndex rebuilds index.json from every addons/<slug>/index.json.
-func writeRootIndex(data string) error {
+// writeRootIndex rebuilds index.json from every addons/<slug>/index.json. An add-on removed from
+// addons.json keeps its history, marked untracked.
+func writeRootIndex(data string, tracked []TrackedAddon) error {
+	isTracked := map[string]bool{}
+	for _, a := range tracked {
+		isTracked[a.Slug] = true
+	}
 	root := RootIndex{FormatVersion: FormatVersion, Addons: []RootAddon{}}
 	paths, _ := filepath.Glob(filepath.Join(data, "addons", "*", "index.json"))
 	sort.Strings(paths)
@@ -204,21 +194,19 @@ func writeRootIndex(data string) error {
 		if err := readJSON(path, &index); err != nil {
 			return fmt.Errorf("%s: %w", path, err)
 		}
-		line := RootAddon{ID: index.ID, Slug: index.Slug, Name: index.Name}
-		if len(index.Versions) > 0 {
-			last := index.Versions[0]
-			line.Last = &RootLast{Label: last.Label, Status: last.Status, ErrorCode: last.ErrorCode}
+		line := RootAddon{Slug: index.Slug, Name: index.Name, Repo: index.Repo, Tracked: isTracked[index.Slug]}
+		if len(index.Generations) > 0 {
+			last := index.Generations[0]
+			line.Last = &RootLast{Generation: last.ID, Release: last.Release.Tag, Status: last.Status, ErrorCode: last.ErrorCode}
 		}
-		for _, v := range index.Versions {
-			if v.Label == index.Latest && v.Status == "succeeded" {
-				line.Latest = &RootLatest{
-					Label:       v.Label,
-					File:        "addons/" + index.Slug + "/" + v.File,
-					SyntaxCount: v.SyntaxCount,
-					JarSHA256:   v.JarSHA256,
-					ExtractedAt: v.ExtractedAt,
-				}
-				break
+		if latest := index.latestOf(); latest != nil {
+			line.Latest = &RootLatest{
+				Generation:  latest.ID,
+				Release:     latest.Release.Tag,
+				File:        "addons/" + index.Slug + "/" + latest.File,
+				SyntaxCount: latest.SyntaxCount,
+				JarSHA256:   latest.JarSHA256,
+				GeneratedAt: latest.GeneratedAt,
 			}
 		}
 		root.Addons = append(root.Addons, line)
